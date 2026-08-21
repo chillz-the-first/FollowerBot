@@ -3,7 +3,7 @@ import time
 
 from dotenv import load_dotenv
 from selenium import webdriver
-from selenium.common import TimeoutException
+from selenium.common import TimeoutException, StaleElementReferenceException, ElementClickInterceptedException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -50,32 +50,46 @@ class InstaFollower:
 
         followers_list = self.wait.until(EC.visibility_of_element_located((By.CLASS_NAME, "followers-scroll")))
         height = self.driver.execute_script("return arguments[0].scrollHeight;", followers_list)
+        stable_checks = 0
 
-        while True:
+        while stable_checks < 2:
             self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight;", followers_list) # Scroll to the bottom of the container
             time.sleep(1.5)
 
             new_height = self.driver.execute_script("return arguments[0].scrollHeight;", followers_list)
             if new_height == height:
-                print("Reached the bottom of the list")
-                break
-            height = new_height
+                stable_checks += 1 # Reached the bottom of the list, but one more iteration to confirm
+            else:
+                stable_checks = 0 # List grew, so reset
+                height = new_height
 
         btn_list = followers_list.find_elements(By.CLASS_NAME, "naan-follow-btn")
         self.followers = btn_list
         print("Followers found")
 
     def follow(self):
-        if not self.followers:
+        # btns and btn both re-locate the buttons, this they remain 'fresh' instead of holding a stale reference
+        btns = self.driver.find_elements(By.CLASS_NAME, "naan-follow-btn")
+        if not btns:
             print("No followers found")
             return
 
-        for follower in self.followers:
-            if "is-following" in follower.get_attribute("class"):
+        followed = 0
+        for i in range(len(btns)):
+            try:
+                btn = self.driver.find_elements(By.CLASS_NAME, "naan-follow-btn")[i]
+                if "is-following" in btn.get_attribute("class"):
+                    continue
+                btn.click()
+                followed += 1
+            except StaleElementReferenceException as e:
+                print(f"Skipped one account: {type(e).__name__}")
                 continue
-            follower.click()
+            except ElementClickInterceptedException:
+                cancel = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Cancel')]")
+                cancel.click()
 
-        print("Now following new accounts")
+        print(f"Now following {followed} new accounts")
 
 bot = None
 try:
