@@ -33,24 +33,45 @@ class InstaFollower:
         login_btn = self.wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Log in']")))
         login_btn.click()
 
-        # self.wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="popup-save-login"]/div/div[2]'))).click()
-        # self.wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="popup-notifications"]/div/button[2]'))).click()
         self.wait.until(EC.element_to_be_clickable((By.XPATH, "//div[contains(text(), 'Not now')]"))).click()
         self.wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Not Now']"))).click()
 
-        # self.wait.until(EC.visibility_of_element_located((By.XPATH, '/html/body/div[1]/nav/a[1]')))
         self.wait.until(EC.visibility_of_element_located((By.CLASS_NAME, "naan-rail-logo")))
         print("Logged in...")
 
     def find_followers(self):
-        pass
+        print("Finding followers...")
+
+        self.driver.get(f"{self.url}/u/{self.similar_acc}")
+        self.wait.until(EC.element_to_be_clickable(
+            (By.XPATH, "/html/body/div[1]/main/header/div[2]/div[2]/span[2]/a")
+        )).click()
+
+        followers_list = self.wait.until(EC.visibility_of_element_located((By.CLASS_NAME, "followers-scroll")))
+        height = self.driver.execute_script("return arguments[0].scrollHeight;", followers_list)
+
+        while True:
+            self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight;", followers_list) # Scroll to the bottom of the container
+            time.sleep(1.5)
+
+            new_height = self.driver.execute_script("arguments[0].scrollHeight;", followers_list)
+            print(new_height)
+            if new_height == height:
+                print("Reached the bottom of the list")
+                break
+            height = new_height
+
+        btn_list = followers_list.find_elements(By.CLASS_NAME, "naan-follow-btn")
+        return btn_list
 
     def follow(self):
         pass
 
+bot = None
 try:
     bot = InstaFollower()
     bot.login()
+    bot.find_followers()
 
     time.sleep(5)
 except TimeoutException:
