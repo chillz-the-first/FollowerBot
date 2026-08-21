@@ -19,6 +19,7 @@ class InstaFollower:
         self.login_url = os.environ.get("LOGIN_URL")
         self.driver = webdriver.Chrome()
         self.wait = WebDriverWait(self.driver, 10)
+        self.followers = []
 
     def login(self):
         print("Logging in...")
@@ -44,7 +45,7 @@ class InstaFollower:
 
         self.driver.get(f"{self.url}/u/{self.similar_acc}")
         self.wait.until(EC.element_to_be_clickable(
-            (By.XPATH, "/html/body/div[1]/main/header/div[2]/div[2]/span[2]/a")
+            (By.XPATH, "//a[contains(text(),'followers')]")
         )).click()
 
         followers_list = self.wait.until(EC.visibility_of_element_located((By.CLASS_NAME, "followers-scroll")))
@@ -54,24 +55,34 @@ class InstaFollower:
             self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight;", followers_list) # Scroll to the bottom of the container
             time.sleep(1.5)
 
-            new_height = self.driver.execute_script("arguments[0].scrollHeight;", followers_list)
-            print(new_height)
+            new_height = self.driver.execute_script("return arguments[0].scrollHeight;", followers_list)
             if new_height == height:
                 print("Reached the bottom of the list")
                 break
             height = new_height
 
         btn_list = followers_list.find_elements(By.CLASS_NAME, "naan-follow-btn")
-        return btn_list
+        self.followers = btn_list
+        print("Followers found")
 
     def follow(self):
-        pass
+        if not self.followers:
+            print("No followers found")
+            return
+
+        for follower in self.followers:
+            if "is-following" in follower.get_attribute("class"):
+                continue
+            follower.click()
+
+        print("Now following new accounts")
 
 bot = None
 try:
     bot = InstaFollower()
     bot.login()
     bot.find_followers()
+    bot.follow()
 
     time.sleep(5)
 except TimeoutException:
